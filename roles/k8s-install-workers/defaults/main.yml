@@ -1,0 +1,3 @@
+---
+# defaults file for k8s-install-workers
+master_ip: "{{ hostvars[groups['k8smasters'][0]]['ansible_default_ipv4'].address | default(groups['k8smasters'][0]) }}"

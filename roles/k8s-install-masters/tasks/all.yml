@@ -1,0 +1,107 @@
+---
+#
+- debug:
+    msg: addrv4 {{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }} master ip {{ master_ip }} service cidr {{ service_network_cidr }} pod network {{ pod_network_cidr }}
+#
+- name: reset k8s cluster components
+  shell: "kubeadm reset --force"
+  register: reset_cluster
+  tags:
+  - install_masters
+
+- debug: var=reset_cluster.stdout_lines
+
+- name: init k8s cluster
+  when: reset_cluster is succeeded
+  shell: |
+    kubeadm init --service-cidr {{ service_network_cidr }} \
+                  --pod-network-cidr {{ pod_network_cidr }} \
+                  --apiserver-advertise-address {{ master_ip }} \
+                  {{ kubeadm_opts }} \
+                  {{ init_opts }}
+  register: init_cluster
+  tags:
+  - install_masters
+
+- debug: var=init_cluster.stdout_lines
+
+- name: create k8s config directory
+  file:
+    path: ".kube/"
+    state: directory
+  tags:
+  - install_masters
+
+- name: copy k8s admin.conf to home directory
+  when: init_cluster is succeeded
+  copy:
+    src: "{{ kubeadmin_config }}"
+    dest: ".kube/config"
+    owner: "{{ ansible_user | default(ansible_user_id) }}"
+    group: "{{ ansible_user | default(ansible_user_id) }}"
+    mode: 0755
+    remote_src: true
+  tags:
+  - install_masters
+
+#
+#
+- name: Create Kubernetes addon directory
+  file:
+    path: "{{ network_dir }}"
+    state: directory
+  tags:
+  - install_masters
+
+- name: "Copy {{ k8s_cni }} YAML files"
+  template:
+    src: "{{ item }}"
+    dest: "{{ network_dir }}/{{ item | basename | regex_replace('\\.j2','') }}"
+  with_fileglob:
+    - ../templates/{{ k8s_cni }}*.j2
+  tags:
+  - install_masters
+
+- name: "Check {{ k8s_cni }} daemonset is working"
+  shell: kubectl --kubeconfig={{ kubeadmin_config }} get ds --all-namespaces | grep {{ k8s_cni }}
+  delegate_to: "{{ groups['k8smasters'][0] }}"
+  run_once: true
+  register: check_net
+  ignore_errors: true
+  changed_when: false
+  tags:
+  - install_masters
+
+- debug: var=check_net.stdout_lines
+
+- name: "Create {{ k8s_cni }} network daemonset"
+  when: check_net is failed
+  command: kubectl apply --kubeconfig={{ kubeadmin_config }} -f {{ network_dir }}/
+  delegate_to: "{{ groups['k8smasters'][0] }}"
+  run_once: true
+  register: network_daemonset
+  tags:
+  - install_masters
+
+- debug: var=network_daemonset.stdout_lines
+#
+- name: create k8s local config directory
+  file:
+    path: "~/.kube/"
+    state: directory
+  delegate_to: 127.0.0.1
+  run_once: true
+  become: false
+  tags:
+  - install_masters
+
+- name: Fetch the remote cluster configuration
+  delegate_to: 127.0.0.1
+  run_once: true
+  become: false
+  shell: "scp -rv root@{{groups['k8smasters'][0]}}:{{ kubeadmin_config }} ~/.kube/config"
+  register: copy_local_config
+  tags:
+  - install_masters
+
+- debug: var=copy_local_config.stdout_lines

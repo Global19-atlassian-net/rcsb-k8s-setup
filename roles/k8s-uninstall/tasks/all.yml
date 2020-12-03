@@ -1,0 +1,8 @@
+---
+# all tasks for k8s-uninstall
+- name: Disable services
+  include_tasks: disable-services.yml
+- name: Unistall packages and config
+  include_tasks: k8s-uninstall.yml
+- name: Reboot cluster nodes
+  include_tasks: reboot.yml

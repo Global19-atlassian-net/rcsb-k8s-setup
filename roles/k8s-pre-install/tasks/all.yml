@@ -1,0 +1,7 @@
+---
+- name: Prerequisite setup tasks
+  include: prerequisites.yml
+
+- name: Update firewalld settings
+  include: firewalld.yml
+  when: setup_firewalld

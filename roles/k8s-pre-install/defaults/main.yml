@@ -1,0 +1,38 @@
+---
+# defaults file for k8s-pre-install
+# Ports for master nodes
+#
+# default vars for k8s-pre-install
+k8s_cni: calico                                      # calico kubespray default, flannel
+container_runtime: docker                            # docker, cri-o, containerd
+setup_firewalld: true                                # true / false
+
+master_node_ports:
+    - 6443
+    - 2379-2380
+    - 10250
+    - 10251
+    - 10252
+    - 10255
+
+# Ports for worker nodes
+worker_node_ports:
+    - 6783
+    - 10250
+    - 10251
+    - 10252
+    - 10255
+    - 30000-32767
+
+# Calico CNI ports
+calico_udp_ports:
+  - 4789
+calico_tcp_ports:
+  - 5473
+  - 179
+  - 5473
+
+# Flannel CNI ports
+flannel_udp_ports:
+  - 8285
+  - 8472

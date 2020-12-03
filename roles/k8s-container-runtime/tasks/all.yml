@@ -1,0 +1,13 @@
+---
+#
+- debug:
+    msg: container runtime setting {{ container_runtime }}
+
+- include_tasks: install_docker.yml
+  when: container_runtime == 'docker'
+
+- include_tasks: install_crio.yml
+  when: container_runtime == 'cri-o'
+
+- include_tasks: install_containerd.yml
+  when: container_runtime == 'containerd'

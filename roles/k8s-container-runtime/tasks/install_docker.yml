@@ -1,0 +1,73 @@
+---
+#
+- name: Install required packages
+  package:
+    name: [yum-utils,lvm2,device-mapper-persistent-data]
+    state: present
+  ignore_errors: True
+  tags:
+  - container-runtime
+  - docker
+
+- name: Install repository for docker community edition
+  shell: yum-config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+  tags:
+  - container-runtime
+  - docker
+
+
+- name: install docker
+  package:
+    name: [docker-ce,docker-ce-cli,containerd.io]
+    state: present
+  tags:
+  - container-runtime
+  - docker
+
+- name: Create support directories
+  file:
+    path: "{{ item }}"
+    state: directory
+  with_items:
+    - /etc/docker
+    - /etc/systemd/system/docker.service.d
+  tags:
+  - container-runtime
+  - docker
+
+- name: Set cgroup driver as systemd, bridge network, storage driver
+  template:
+    src: daemon.json.j2
+    dest: /etc/docker/daemon.json
+  tags:
+  - container-runtime
+  - docker
+
+- name: Write docker options systemd drop-in
+  template:
+    src: docker-options.conf.j2
+    dest: "/etc/systemd/system/docker.service.d/docker-options.conf"
+  # notify: restart docker
+  when: docker_mount_flags is defined
+  tags:
+  - container-runtime
+  - docker
+
+- name: Start/enable the docker service
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  tags:
+  - container-runtime
+  - docker
+
+- name: Restart docker service
+  systemd:
+    name: docker
+    state: restarted
+    daemon_reload: yes
+  tags:
+  - container-runtime
+  - docker

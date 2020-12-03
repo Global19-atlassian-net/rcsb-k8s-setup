@@ -1,0 +1,80 @@
+---
+# --------
+# default vars for k8s-pre-install
+k8s_cni: calico                                      # calico default, flannel
+container_runtime: docker                            # docker, cri-o, containerd
+setup_firewalld: true                                # true / false
+# --------
+# defaults file for k8s-container-runtime
+bridge_network_addr: 172.30.0.1/16
+# --------
+# defaults file for k8s-install-masters
+#
+# calico default: 192.168.0.0/16 but not required
+# flannel default:  10.244.0.0/16 (required)
+#
+pod_network_cidr: "10.244.0.0/16"
+# master_ip: "{{ hostvars[groups['k8smasters'][0]]['ansible_default_ipv4'].address | default(groups['k8smasters'][0]) }}"
+service_network_cidr: "10.96.0.0/12"
+
+# Network implementation('flannel', 'calico', 'canal')
+# Calico networking manifest -> roles/k8s-install-masters/templates/calico.yaml.j2
+# download from: https://docs.projectcalico.org/manifests/calico.yaml
+# network: calico
+
+# feature: --feature-gates SelfHosting=true
+#          --ignore-preflight-errors=all
+init_opts: ""
+
+# Other additional opts
+kubeadm_opts: ""
+# For example:
+# kubeadm_opts: '--apiserver-cert-extra-sans "k8s.domain.com,kubernetes.domain.com"'
+
+
+#
+kubeadmin_config: /etc/kubernetes/admin.conf
+kube_addon_dir: /etc/kubernetes/addon
+network_dir: /etc/kubernetes/network
+
+# Additional features to install
+additional_features:
+    enable_metallb: yes
+    enable_kube_dashboard: yes
+
+# temporary directory used by additional features
+tmp_dir: /tmp/kubeadm-features
+
+#
+k8s_user_uid: 40012
+k8s_user_gid: 13000
+k8s_admin_uid: 40013
+k8s_admin_gid: 13001
+#
+
+# Local static volume provisioner deployment
+local_volume_provisioner_enabled: false
+# local_volume_provisioner_namespace: kube-system
+#
+# local_volume_provisioner_storage_classes:
+#     - storage_class_name: fast-storage
+#       local_devices:
+#         - base_host_dir:  /mnt/base-fast-storage
+#           dev_mount_dir: /dev/mapper/ssd-ssd
+#           host_dir: /mnt/disks-fast-storage
+#           volume_mode: FileSystem
+#           fs_type:  xfs
+#           volume_count: 10
+#
+#     - storage_class_name: local-storage
+#       local_devices:
+#         - base_host_dir: /mnt/base-local-storage
+#           dev_mount_dir: /dev/mapper/centos-data
+#           host_dir: /mnt/disks-local-storage
+#           volume_mode: FileSystem
+#           fs_type: xfs
+#           volume_count: 10
+#
+# To completely remove any provisioned local volumes - (all data will be lost)
+local_storage_uninstall: yes
+#

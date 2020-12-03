@@ -1,0 +1,9 @@
+---
+# defaults file for k8s-uninstall
+packages:
+    - docker*
+    - kubeadm
+    - kubectl
+    - kubelet
+    - containerd.io
+    - cri-o

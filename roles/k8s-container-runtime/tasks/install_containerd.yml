@@ -1,0 +1,51 @@
+---
+- name: Add docker repository
+  get_url:
+    url: https://download.docker.com/linux/centos/docker-ce.repo
+    dest: /etc/yum.repos.d/docer-ce.repo
+  tags:
+  - container-runtime
+  - containerd
+
+- name: Install containerd
+  package:
+    name: [containerd.io]
+    state: present
+  tags:
+  - container-runtime
+  - containerd
+
+- name: Create containerd directories required
+  file:
+    path: "{{ item }}"
+    state: directory
+  with_items:
+    - /etc/containerd
+  tags:
+  - container-runtime
+  - containerd
+
+- name: Configure containerd
+  shell: containerd config default > /etc/containerd/config.toml
+  run_once: true
+  tags:
+  - container-runtime
+  - containerd
+
+- name: Set cgroup driver as systemd
+  template:
+    src: daemon.json.j2
+    dest: /etc/docker/daemon.json
+  tags:
+  - container-runtime
+  - containerd
+
+- name: Start and enable containerd service
+  systemd:
+    name: containerd
+    state: restarted
+    enabled: yes
+    daemon_reload: yes
+  tags:
+  - container-runtime
+  - containerd

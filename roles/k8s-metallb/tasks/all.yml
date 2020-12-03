@@ -1,0 +1,66 @@
+---
+- name: "Create tmp directory"
+  file:
+    path: "{{ tmp_dir }}"
+    state: directory
+    mode: 0755
+  tags: metallb
+
+- name: "Install MetalLB"
+  shell: "kubectl apply -f {{ metallb_ns_yaml_url }}"
+  register: metallb_install_ns
+  tags: metallb
+
+- debug: var=metallb_install_ns.stdout_lines
+
+- name: "Install MetalLB"
+  shell: "kubectl apply -f {{ metallb_yaml_url }}"
+  register: metallb_install
+  tags: metallb
+
+- debug: var=metallb_install.stdout_lines
+
+- name: "Generate MetalLB Secret"
+  shell: "openssl rand -base64 128"
+  register: secret_raw
+  tags: metallb
+
+- name: Set secret
+  set_fact:
+    secret_token: "{{ secret_raw.stdout_lines | join() }}"
+  tags: metallb
+
+- debug: var=secret_token
+
+- name: "Install MetalLB Secret"
+  shell: "kubectl create secret generic -n metallb-system memberlist --from-literal=secretkey={{ secret_token }}"
+  register: metallb_secret
+  tags: metallb
+  ignore_errors: true
+  run_once: true
+
+- debug: var=metallb_secret.stdout_lines
+
+- name: "Create configmap file"
+  template:
+    src: metallb-layer-2-config.yml.j2
+    dest: "{{ tmp_dir }}/metallb-layer-2-config.yml"
+  tags: metallb
+
+- name: "Create MetalLB configmap in kubernetes"
+  shell: "kubectl apply -f {{ tmp_dir }}/metallb-layer-2-config.yml"
+  tags: metallb
+
+- name: "Clean-up"
+  file:
+    path: "{{ tmp_dir }}"
+    state: absent
+  ignore_errors: yes
+  tags: metallb
+
+- name: "Check MetalLB Deployment"
+  shell: "kubectl get deploy controller -n metallb-system -o wide"
+  register: metallb_deploy
+  tags: metallb
+
+- debug: var=metallb_deploy.stdout_lines

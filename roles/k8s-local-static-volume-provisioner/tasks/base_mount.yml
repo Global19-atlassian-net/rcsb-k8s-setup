@@ -1,0 +1,88 @@
+---
+# embedded tasks
+#
+# Mount and path conventions -
+#
+# 1. Mount base dir
+# /dev/mapper/ssd-ssd -> /mnt/base-fast-storage-<uuid>
+#     <dev_mount_dir> -> <base_host_dir>-<uuid>
+#                          <local_path_uuid>
+#
+# 2. Make subdirectories in the base host directory
+#
+#    /mnt/base-fast-storage-<uuid>/vol_<0-n>
+#           <base_host_dir>-<uuid>/vol_<0-<volume_count>>
+#                <local_path_uuid>/vol_<0-<volume_count>>
+#
+# 3. Mount the local subdirectories in the discovery directory, <host_dir>
+#
+#    /mnt/<local_path_uuid>/vol_<0-n>            -> /mnt/disks-<storage_class>/<vol_<0-n>-<uuid>
+#    <base_host_dir>-<uuid>/vol_<0-<volume_count>> -> <host_dir>/<vol_<0-<volume_count>>-<uuid>
+#         <local_path_uuid>/vol_<0-<volume_count>> ->
+#
+# Configuration example:
+#
+# - storage_class_name: fast-storage
+#   local_devices:
+#    - base_host_dir:  /mnt/base-fast-storage
+#      dev_mount_dir: /dev/mapper/ssd-ssd
+#      host_dir: /mnt/disks-fast-storage  # convention /mnt/disks-<storage_class>
+#      volume_mode: FileSystem
+#      fs_type:  xfs
+#      volume_count: 10
+#
+- name: Get the uuid of the volume device
+  command: "lsblk -no UUID {{ item.1.dev_mount_dir}}"
+  register: local_uuid_raw
+
+- name: Set the volume uuid
+  set_fact:
+    local_uuid: "{{ local_uuid_raw.stdout_lines[0] }}"
+  #
+- name: Set local path
+  set_fact:
+    local_path_uuid: "{{  item.1.base_host_dir }}-{{ local_uuid }}"
+  #
+- debug:  var=local_path_uuid
+
+- name: Mount host base path
+  mount:
+    path: "{{  local_path_uuid }}"
+    src:  "{{ item.1.dev_mount_dir }}"
+    opts: defaults
+    state: mounted
+    fstype: xfs
+  register: mount_results
+
+- debug: var=mount_results
+#
+# ---
+#
+- name: Create sub directories in the local base directory
+  file:
+    path: "{{ local_path_uuid }}/vol_{{ this_item }}"
+    state: directory
+    owner: "{{ k8s_user_uid }}"
+    group: "{{ k8s_user_gid }}"
+    mode: 0755
+  #
+  with_sequence: end={{ item.1.volume_count }} start=1
+  loop_control:
+    loop_var: this_item
+# -
+- name: Mount host base path
+  mount:
+    path: "{{  item.1.host_dir }}/vol_{{ this_item }}_{{ local_uuid }}"
+    src:  "{{ local_path_uuid }}/vol_{{ this_item }}"
+    opts: bind
+    state: mounted
+    fstype: none
+  with_sequence: end={{ item.1.volume_count }} start=1
+  loop_control:
+    loop_var: this_item
+
+  register: bind_mount_results
+
+- debug: var=bind_mount_results
+
+

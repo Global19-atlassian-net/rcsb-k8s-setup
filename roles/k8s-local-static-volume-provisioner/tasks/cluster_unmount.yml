@@ -1,0 +1,82 @@
+---
+#
+# Unmount and cleanup local cluster volume point points
+#
+# 1. Mount base dir
+# /dev/mapper/ssd-ssd -> /mnt/base-fast-storage-<uuid>
+#     <dev_mount_dir> -> <base_host_dir>-<uuid>
+#                          <local_path_uuid>
+#
+# 2. Make subdirectories in the base host directory
+#
+#    /mnt/base-fast-storage-<uuid>/vol_<0-n>
+#           <base_host_dir>-<uuid>/vol_<0-<volume_count>>
+#                <local_path_uuid>/vol_<0-<volume_count>>
+#
+# 3. Mount the local subdirectories in the discovery directory, <host_dir>
+#
+#    /mnt/<local_path_uuid>/vol_<0-n>            -> /mnt/disks-<storage_class>/<vol_<0-n>-<uuid>
+#    <base_host_dir>-<uuid>/vol_<0-<volume_count>> -> <host_dir>/<vol_<0-<volume_count>>-<uuid>
+#         <local_path_uuid>/vol_<0-<volume_count>>
+#
+# Configuration example:
+#
+# - storage_class_name: fast-storage
+#   local_devices:
+#    - base_host_dir:  /mnt/base-fast-storage
+#      dev_mount_dir: /dev/mapper/ssd-ssd
+#      host_dir: /mnt/disks-fast-storage  # convention /mnt/disks-<storage_class>
+#      volume_mode: FileSystem
+#      fs_type:  xfs
+#      volume_count: 10
+#
+#
+- name: get uuid
+  command: "lsblk -no UUID {{ item.1.dev_mount_dir}}"
+  register: local_uuid_raw
+
+- name: set uuid
+  set_fact:
+    local_uuid: "{{ local_uuid_raw.stdout_lines[0] }}"
+  #
+- name: set local path
+  set_fact:
+    local_path_uuid: "{{  item.1.base_host_dir }}-{{ local_uuid }}"
+  #
+- debug:  var=local_path_uuid
+#
+# -
+- name: Unmount host base path
+  mount:
+    path: "{{  item.1.host_dir }}/vol_{{ this_item }}_{{ local_uuid }}"
+    src:  "{{ local_path_uuid }}/vol_{{ this_item }}"
+    state: absent
+  with_sequence: end={{ item.1.volume_count }} start=0
+  loop_control:
+    loop_var: this_item
+  register: bind_unmount_results
+  run_once: true
+
+- debug: var=bind_unmount_results
+
+- name: Remove sub directories in the base dir
+  file:
+    path: "{{ local_path_uuid }}/vol_{{ this_item }}"
+    state: absent
+  #
+  with_sequence: end={{ item.1.volume_count}} start=0
+  loop_control:
+    loop_var: this_item
+  run_once: true
+
+
+- name: Unmount host base path
+  mount:
+    path: "{{  local_path_uuid }}"
+    src:  "{{ item.1.dev_mount_dir }}"
+    state: absent
+  register: unmount_results
+  run_once: true
+
+- debug: var=unmount_results
+

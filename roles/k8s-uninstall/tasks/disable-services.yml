@@ -1,0 +1,14 @@
+---
+- name: Stop docker systemd service
+  systemd:
+    name={{ item }}
+    state=stopped
+    enabled=no
+  with_items:
+    - docker.service
+    - docker.socket
+    - containerd
+    - crio
+  ignore_errors: True
+  tags:
+  - uninstall

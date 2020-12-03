@@ -1,0 +1,66 @@
+---
+#
+# k8s cluster setup
+- hosts: cluster
+  become: yes
+  become_method: sudo
+  gather_facts: no
+  tags:
+  - common
+  roles:
+  - { role: k8s-uninstall, task: all, tags: [ 'uninstall'] }
+  - { role: k8s-local-static-volume-provisioner, when: local_storage_uninstall=="yes", task: remove, tags: ['local-storage-uninstall'] }
+  - { role: k8s-pre-install, task: all, tags: ['pre-install', 'firewalld', 'prerequisites'] }
+  - { role: k8s-container-runtime, task: all, tags: ['container-runtime', 'docker', 'cri-o', 'containerd'] }
+  - { role: k8s-install-packages, task: all, tags: ['install-packages'] }
+
+#
+- hosts: k8smasters
+  become: yes
+  become_method: sudo
+  gather_facts: yes
+  tags:
+  - masters
+  roles:
+  - { role: k8s-install-masters, task: all, tags: ['install-masters'] }
+
+#
+- hosts: k8sworkers
+  remote_user: root
+  become: yes
+  become_method: sudo
+  gather_facts: yes
+  tags:
+  - workers
+  roles:
+  - { role: k8s-install-workers, task: all, tags: ['install-workers'] }
+
+- hosts: k8smasters
+  become: yes
+  become_method: sudo
+  gather_facts: yes
+  tags:
+  - masters
+  roles:
+    - { role: k8s-metallb, task: all, tags: ['metallb'], when: additional_features.enable_metallb}
+
+- hosts: k8smasters
+  become: yes
+  become_method: sudo
+  gather_facts: yes
+  tags:
+  - masters
+  roles:
+    - { role: k8s-kube-dashboard, task: all, tags: ['kube-dashboard'], when: additional_features.enable_kube_dashboard}
+
+
+- hosts: k8sworkers
+  remote_user: root
+  become: yes
+  become_method: sudo
+  gather_facts: yes
+  tags:
+  - workers
+  roles:
+  - { role: k8s-local-static-volume-provisioner, task: all, tags: ['local-storage'] }
+  # - { role: k8s-local-static-volume-provisioner, when: local_storage_uninstall=="yes", task: remove, tags: ['local-storage-uninstall'] }

@@ -1,0 +1,66 @@
+---
+#
+- name: "Create tmp directory"
+  when: additional_features.enable_kube_dashboard
+  file:
+    path: "{{ tmp_dir }}"
+    state: directory
+    mode: 0755
+  tags: kube-dashboard
+
+
+- name: deploy the default k8s dashboard
+  when: additional_features.enable_kube_dashboard
+  command: |
+    kubectl --kubeconfig={{ kubeadmin_config }} \
+        apply -f https://raw.githubusercontent.com/kubernetes/dashboard/master/aio/deploy/recommended.yaml
+  register: create_result
+  until: create_result.rc == 0
+  retries: 5
+  delay: 2
+  ignore_errors: true
+  tags: kube-dashboard
+
+- debug: var=create_result.stdout_lines
+
+- name: deploy the default k8s dashboard
+  when: additional_features.enable_kube_dashboard
+  shell: |
+    kubectl -n kubernetes-dashboard get service kubernetes-dashboard -o yaml > {{ tmp_dir}}/kube-dash-svc.yaml
+    sed 's/ClusterIP/LoadBalancer/' {{ tmp_dir}}/kube-dash-svc.yaml > {{ tmp_dir}}/new-kube-dash-svc.yaml
+    kubectl --kubeconfig={{ kubeadmin_config }} apply -f {{ tmp_dir}}/new-kube-dash-svc.yaml
+  ignore_errors: true
+  register: edit_result
+  tags: kube-dashboard
+
+- debug: var=edit_result.stdout_lines
+
+- name: "Copy service account yaml file"
+  copy:
+    src: "dashboard-adminuser.yml"
+    dest: "{{ tmp_dir }}/dashboard-adminuser.yml"
+    mode: 0644
+  tags: kube-dashboard
+
+- name: "sa configuration"
+  shell: "kubectl apply --kubeconfig={{ kubeadmin_config }} -f {{ tmp_dir }}/dashboard-adminuser.yml"
+  tags: kube-dashboard
+#
+- name: "Copy service account role binding yaml file"
+  copy:
+    src: "dashboard-adminuser-binding.yml"
+    dest: "{{ tmp_dir }}/dashboard-adminuser-binding.yml"
+    mode: 0644
+  tags: kube-dashboard
+
+- name: "Sevice account RBAC configuration"
+  shell: "kubectl apply --kubeconfig={{ kubeadmin_config }} -f {{ tmp_dir }}/dashboard-adminuser-binding.yml"
+  tags: kube-dashboard
+#
+- name: "Get security token"
+  shell: |
+    kubectl -n kubernetes-dashboard describe secret $(kubectl -n kubernetes-dashboard get secret | grep admin-user | awk '{print $1}')
+  tags: kube-dashboard
+  register: token_result
+
+- debug: var=token_result.stdout_lines

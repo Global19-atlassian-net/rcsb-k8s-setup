@@ -1,0 +1,23 @@
+---
+#
+local_volume_provisioner_namespace: "kube-system"
+#
+local_volume_provisioner_storage_classes:
+    - storage_class_name: fast-storage
+      local_devices:
+        - base_host_dir:  /mnt/base-fast-storage
+          dev_mount_dir: /dev/mapper/ssd-ssd
+          host_dir: /mnt/disks-fast-storage
+          volume_mode: FileSystem
+          fs_type:  xfs
+          volume_count: 10
+
+    - storage_class_name: local-storage
+      local_devices:
+        - base_host_dir: /mnt/base-local-storage
+          dev_mount_dir: /dev/mapper/centos-data
+          host_dir: /mnt/disks-local-storage
+          volume_mode: FileSystem
+          fs_type: xfs
+          volume_count: 10
+

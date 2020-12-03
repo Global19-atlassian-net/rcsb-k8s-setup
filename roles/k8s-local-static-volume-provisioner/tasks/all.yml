@@ -1,0 +1,31 @@
+---
+#
+- name: enumerate storage
+  shell: "echo key: {{ item.0.storage_class_name }} host_dir: {{ item.1.host_dir }} fs_type: {{ item.1.fs_type }}"
+  loop: "{{ local_volume_provisioner_storage_classes | subelements('local_devices') }}"
+  register: enumerate_local_storage
+  tags:
+    - local_static_volume_provisioner
+    - local_storage
+
+- debug: var=enumerate_local_storage
+
+- name: results loop over all hosts output/result
+  debug:
+    msg: "{{ item.stdout_lines }}"
+  with_items: "{{ enumerate_local_storage.results }}"
+  loop_control:
+    label: "{{ inventory_hostname }}"
+
+
+# create cluster mount points
+- name: create cluster mounts for local storage
+  include_tasks: cluster_mount.yml
+  loop: "{{ local_volume_provisioner_storage_classes | subelements('local_devices') }}"
+  register: cluster_mount_local_storage
+  tags:
+    - local_static_volume_provisioner
+    - local_storage
+
+- debug: var=cluster_mount_local_storage
+

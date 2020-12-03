@@ -1,0 +1,61 @@
+---
+#
+- name: "Local Volume Provisioner | Ensure base dir {{ delegate_host_base_dir.1 }} is created on {{ delegate_host_base_dir.0 }}"
+  file:
+    path: "{{ local_volume_provisioner_storage_classes[delegate_host_base_dir.1].host_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "{{ local_volume_provisioner_directory_mode }}"
+  delegate_to: "{{ delegate_host_base_dir.0 }}"
+
+- name: enumerate storage -
+  shell: "echo key: {{ item.key }} values: {{ item.value }}"
+  loop: {{ local_volume_provisioner_storage_classes | dict2items }}
+  register: mount_local_disks
+
+- name: Mount local storage volumes
+  shell: |
+    DISK_UUID=$(blkid -s UUID -o value {{ devPath }} )
+    mkdir /mnt/$DISK_UUID
+    mount -t {{ linuxFsType }} {{devPath}} {{ mountPath }}
+  loop: {{ local_storage | dict2items}}
+  register: mount_local_disks
+  run_once: true
+  ignore_errors: true
+
+  tags:
+  - local_provisioner
+
+- debug: var=init_cluster.stdout_lines
+
+-name: Mount base directories
+
+  $ sudo mkfs.ext4 /dev/path/to/disk
+  $ DISK_UUID=$(blkid -s UUID -o value /dev/path/to/disk)
+  $ sudo mkdir /mnt/$DISK_UUID
+  $ sudo mount -t ext4 /dev/path/to/disk /mnt/$DISK_UUID
+
+  echo UUID=`sudo blkid -s UUID -o value /dev/path/to/disk` /mnt/$DISK_UUID ext4 defaults 0 2 | sudo tee -a /etc/fstab
+
+  for i in $(seq 1 10); do
+  sudo mkdir -p /mnt/${DISK_UUID}/vol${i} /mnt/disks/${DISK_UUID}_vol${i}
+  sudo mount --bind /mnt/${DISK_UUID}/vol${i} /mnt/disks/${DISK_UUID}_vol${i}
+  done
+
+  Persistent bind mount entries into /etc/fstab
+for i in $(seq 1 10); do
+  echo /mnt/${DISK_UUID}/vol${i} /mnt/disks/${DISK_UUID}_vol${i} none bind 0 0 | sudo tee -a /etc/fstab
+done
+
+
+    mount:
+      path: /system/new_volume/boot
+      src: /boot
+      opts: bind
+      state: mounted
+      fstype: none
+
+- name: "Get UUID for partition"
+  command: "lsblk -no UUID /dev/xvdb1"
+  register: with_output

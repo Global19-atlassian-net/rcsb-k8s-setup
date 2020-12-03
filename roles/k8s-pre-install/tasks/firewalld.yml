@@ -1,0 +1,95 @@
+---
+- debug:
+    msg: Using CNI {{ k8s_cni }}
+
+- name: Install firewalld
+  package:
+    name: firewalld
+    state: present
+  tags:
+  - firewalld
+
+- name: Start and enable firewalld
+  service:
+    name: firewalld
+    state: started
+    enabled: yes
+  tags:
+  - firewalld
+
+- name: Setting for iptables
+  shell: iptables -P FORWARD ACCEPT
+  tags:
+  - firewalld
+
+- name: Setting for firewalld
+  shell: firewall-cmd --add-masquerade --permanent
+  tags:
+  - firewalld
+
+- name: Open ports for master nodes
+  firewalld:
+    port: "{{ item }}/tcp"
+    permanent: yes
+    state: enabled
+  with_items: '{{ master_node_ports }}'
+  when: "'k8smasters' in group_names"
+  tags:
+  - firewalld
+
+- name: Open ports for worker nodes
+  firewalld:
+    port: "{{ item }}/tcp"
+    permanent: yes
+    state: enabled
+  with_items: '{{ worker_node_ports }}'
+  when: "'k8sworkers' in group_names"
+  tags:
+  - firewalld
+
+- name: Open ports for flannel
+  firewalld:
+    port: "{{ item }}/udp"
+    permanent: yes
+    state: enabled
+  with_items: "{{ flannel_udp_ports }}"
+  when: k8s_cni == "flannel"
+  tags:
+  - firewalld
+
+- name: Open ports for calico UDP
+  firewalld:
+    port: "{{ item }}/udp"
+    permanent: yes
+    state: enabled
+  with_items: "{{ calico_udp_ports }}"
+  when: k8s_cni == "calico"
+  tags:
+  - firewalld
+
+- name: Open ports for calico
+  firewalld:
+    port: "{{ item }}/tcp"
+    permanent: yes
+    state: enabled
+  with_items: "{{ calico_tcp_ports }}"
+  when: k8s_cni == "calico"
+  tags:
+  - firewalld
+
+- name: Reload firewalld
+  shell: firewall-cmd --reload
+  tags:
+  - firewalld
+
+- name: Reload firewalld
+  shell: firewall-cmd --reload
+  tags:
+  - firewalld
+
+#
+#- name: Stop and disable firewalld.
+#  service:
+#    name: firewalld
+#    state: stopped
+#    enabled: False

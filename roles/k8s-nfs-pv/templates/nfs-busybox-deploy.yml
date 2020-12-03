@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    run: nfs-busybox
+  name: nfs-bushbox-deploy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      run: nfs-busybox
+  template:
+    metadata:
+      labels:
+        run: nfs-busybox
+    spec:
+      securityContext:
+        runAsUser: 10000
+        runAsGroup: 20000
+        fsGroup: 20000
+      volumes:
+      - name: mnt-busybox
+        persistentVolumeClaim:
+          claimName: pvc-nfs-kube-vol
+      containers:
+      - name: busybox-demo
+        image: busybox
+        command: [ "sh", "-c", "sleep 1h" ]
+        volumeMounts:
+        - name: mnt-busybox
+          mountPath: /data/demo
+          subPath: kube_vol
+        securityContext:
+          allowPrivilegeEscalation: false
+

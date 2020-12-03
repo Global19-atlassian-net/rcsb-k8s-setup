@@ -1,0 +1,32 @@
+---
+# defaults file for k8s-install-cluster
+# calico default: 192.168.0.0/16 but not required
+# flannel default:  10.244.0.0/16 (required)
+#
+pod_network_cidr: "10.244.0.0/16"
+master_ip: "{{ hostvars[groups['k8smasters'][0]]['ansible_default_ipv4'].address | default(groups['k8smasters'][0]) }}"
+service_network_cidr: "10.96.0.0/12"
+
+# Network implementation('flannel', 'calico', 'canal')
+#
+# Calico networking manifest -> roles/k8s-install-masters/templates/calico.yaml.j2
+# https://docs.projectcalico.org/manifests/calico.yaml
+#
+k8s_cni: calico
+
+# feature: --feature-gates SelfHosting=true
+#          --ignore-preflight-errors=all
+init_opts: ""
+
+# Other additional opts
+kubeadm_opts: ""
+# For example:
+# kubeadm_opts: '--apiserver-cert-extra-sans "k8s.domain.com,kubernetes.domain.com"'
+
+#
+kubeadmin_config: /etc/kubernetes/admin.conf
+kube_addon_dir: /etc/kubernetes/addon
+network_dir: /etc/kubernetes/network
+#
+additional_features:
+    enable_dashboard: yes

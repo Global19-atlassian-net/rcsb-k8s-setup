@@ -1,0 +1,6 @@
+---
+# defaults file for k8s-container-runtime
+container_runtime: docker
+bridge_network_addr: 172.30.0.1/16
+# Required for CSI drivers
+docker_mount_flags: shared
